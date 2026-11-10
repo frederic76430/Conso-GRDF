@@ -34,7 +34,9 @@ def _jour(texte: Any) -> date | None:
     return None
 
 
-def releves_par_jour(releves: list[dict[str, Any]]) -> dict[date, dict[str, float | None]]:
+def releves_par_jour(
+    releves: list[dict[str, Any]],
+) -> dict[date, dict[str, float | None]]:
     """{jour: {"volume": m³, "energie": kWh, "index": m³, "temperature": °C, "coef": kWh/m³}}.
 
     Les jours sans volume ni énergie sont ignorés (GRDF n'a pas encore la donnée).
@@ -51,9 +53,13 @@ def releves_par_jour(releves: list[dict[str, Any]]) -> dict[date, dict[str, floa
     return resultat
 
 
-def somme(jours: dict[date, dict[str, float | None]], cle: str, debut: date, fin: date) -> tuple[float | None, int]:
+def somme(
+    jours: dict[date, dict[str, float | None]], cle: str, debut: date, fin: date
+) -> tuple[float | None, int]:
     """(somme de « cle » sur [debut ; fin[, nombre de jours), (None, 0) sans donnée."""
-    valeurs = [v[cle] for j, v in jours.items() if debut <= j < fin and v.get(cle) is not None]
+    valeurs = [
+        v[cle] for j, v in jours.items() if debut <= j < fin and v.get(cle) is not None
+    ]
     return (round(sum(valeurs), 3), len(valeurs)) if valeurs else (None, 0)
 
 

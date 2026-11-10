@@ -10,6 +10,12 @@ CONF_PCE = "pce"
 CONF_TYPE_CONSO = "type_conso"
 CONF_STATISTIQUES = "statistiques"
 CONF_PREFIXE = "prefixe"
+CONF_COUTS = "couts"
+# Tarifs TTC saisis à la main (0 = repris des coûts gazpar2haws)
+CONF_PRIX_KWH = "prix_kwh"
+CONF_TAXES_KWH = "taxes_kwh"
+CONF_ABONNEMENT_JOUR = "abonnement_jour"
+CONF_TRANSPORT_JOUR = "transport_jour"
 
 TYPE_INFORMATIVE = "informative"
 TYPE_PUBLIEE = "published"

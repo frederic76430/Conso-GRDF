@@ -28,7 +28,9 @@ def _source(identifiant: str, mot_de_passe: str, type_conso: str):
         username=identifiant,
         password=mot_de_passe,
         consumption_type=(
-            pygazpar.ConsumptionType.PUBLISHED if type_conso == TYPE_PUBLIEE else pygazpar.ConsumptionType.INFORMATIVE
+            pygazpar.ConsumptionType.PUBLISHED
+            if type_conso == TYPE_PUBLIEE
+            else pygazpar.ConsumptionType.INFORMATIVE
         ),
     )
 
@@ -44,7 +46,14 @@ def _traduire(err: Exception) -> ApiError:
 class GrdfClient:
     """Lecture des relevés d'un PCE. Les appels réseau (bloquants) passent par l'exécuteur de Home Assistant."""
 
-    def __init__(self, hass: HomeAssistant, identifiant: str, mot_de_passe: str, pce: str, type_conso: str) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        identifiant: str,
+        mot_de_passe: str,
+        pce: str,
+        type_conso: str,
+    ) -> None:
         self._hass = hass
         self._identifiant = identifiant
         self._mot_de_passe = mot_de_passe
@@ -65,7 +74,9 @@ class GrdfClient:
                 source.logout()
             except Exception:
                 _LOGGER.debug("Déconnexion GRDF impossible", exc_info=True)
-        return list(resultat.get(pygazpar.Frequency.DAILY) or resultat.get("daily") or [])
+        return list(
+            resultat.get(pygazpar.Frequency.DAILY) or resultat.get("daily") or []
+        )
 
     async def async_lire(self, debut: date, fin: date) -> list[dict[str, Any]]:
         """Relevés quotidiens de [debut ; fin]."""
@@ -86,6 +97,8 @@ def _pces(identifiant: str, mot_de_passe: str) -> list[str]:
             _LOGGER.debug("Déconnexion GRDF impossible", exc_info=True)
 
 
-async def async_pces(hass: HomeAssistant, identifiant: str, mot_de_passe: str) -> list[str]:
+async def async_pces(
+    hass: HomeAssistant, identifiant: str, mot_de_passe: str
+) -> list[str]:
     """PCE du compte (sert aussi de test de connexion)."""
     return await hass.async_add_executor_job(_pces, identifiant, mot_de_passe)

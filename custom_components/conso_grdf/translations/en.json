@@ -39,11 +39,16 @@
     "step": {
       "init": {
         "title": "Options",
-        "description": "Statistics: writes sensor.PREFIX_volume and sensor.PREFIX_energy daily like gazpar2haws, continuing where it stopped. Use the same device name as in gazpar2haws (gazpar2haws by default) and stop gazpar2haws before enabling.",
+        "description": "Statistics: writes sensor.PREFIX_volume and sensor.PREFIX_energy daily like gazpar2haws, continuing where it stopped. Use the same device name as in gazpar2haws (gazpar2haws by default) and stop gazpar2haws before enabling. Costs: at 0, prices are learned from the costs already recorded by gazpar2haws (last 60 days).",
         "data": {
           "type_conso": "GRDF readings",
           "statistiques": "Energy dashboard statistics (replaces gazpar2haws)",
-          "prefixe": "gazpar2haws device name"
+          "prefixe": "gazpar2haws device name",
+          "couts": "Also compute costs (gazpar2haws _cost statistics)",
+          "prix_kwh": "kWh price incl. VAT (0 = from gazpar2haws)",
+          "taxes_kwh": "Taxes per kWh (0 = from gazpar2haws)",
+          "abonnement_jour": "Subscription per day (0 = from gazpar2haws)",
+          "transport_jour": "Transport per day (0 = from gazpar2haws)"
         }
       }
     },
@@ -93,6 +98,9 @@
       },
       "derniere_lecture": {
         "name": "Last read"
+      },
+      "tarif_kwh": {
+        "name": "Gas price"
       }
     }
   }

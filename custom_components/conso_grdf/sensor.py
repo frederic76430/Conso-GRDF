@@ -47,15 +47,25 @@ def _dernier(cle: str, decimales: int = 3) -> Callable[[dict[str, Any], date], V
     return calcul
 
 
-def _periode(cle: str, debut: Callable[[date], date], fin: Callable[[date], date]) -> Callable[[dict[str, Any], date], Valeur]:
+def _periode(
+    cle: str, debut: Callable[[date], date], fin: Callable[[date], date]
+) -> Callable[[dict[str, Any], date], Valeur]:
     def calcul(data: dict[str, Any], aujourdhui: date) -> Valeur:
         d1, d2 = debut(aujourdhui), fin(aujourdhui)
         total, nb = somme(data["jours"], cle, d1, d2)
         if total is None:
             # Début de mois ou d'année : GRDF n'a encore rien publié
             return (0.0 if d1 >= aujourdhui - timedelta(days=4) else None), {"jours": 0}
-        dernier = max(j for j, v in data["jours"].items() if d1 <= j < d2 and v.get(cle) is not None)
-        return total, {"du": d1.isoformat(), "jusqu_au": dernier.isoformat(), "jours": nb}
+        dernier = max(
+            j
+            for j, v in data["jours"].items()
+            if d1 <= j < d2 and v.get(cle) is not None
+        )
+        return total, {
+            "du": d1.isoformat(),
+            "jusqu_au": dernier.isoformat(),
+            "jours": nb,
+        }
 
     return calcul
 
@@ -72,15 +82,23 @@ class ConsoGrdfDescription(SensorEntityDescription):
 
 def _energie(key: str, calcul) -> ConsoGrdfDescription:
     return ConsoGrdfDescription(
-        key=key, translation_key=key, device_class=SensorDeviceClass.ENERGY,
-        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR, suggested_display_precision=1, calcul=calcul,
+        key=key,
+        translation_key=key,
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        suggested_display_precision=1,
+        calcul=calcul,
     )
 
 
 def _volume(key: str, calcul) -> ConsoGrdfDescription:
     return ConsoGrdfDescription(
-        key=key, translation_key=key, device_class=SensorDeviceClass.GAS,
-        native_unit_of_measurement=UnitOfVolume.CUBIC_METERS, suggested_display_precision=2, calcul=calcul,
+        key=key,
+        translation_key=key,
+        device_class=SensorDeviceClass.GAS,
+        native_unit_of_measurement=UnitOfVolume.CUBIC_METERS,
+        suggested_display_precision=2,
+        calcul=calcul,
     )
 
 
@@ -95,19 +113,38 @@ DESCRIPTIONS: tuple[ConsoGrdfDescription, ...] = (
     _volume("volume_annee", _periode("volume", *_ANNEE)),
     _volume("index", _dernier("index", 2)),
     ConsoGrdfDescription(
-        key="temperature", translation_key="temperature", device_class=SensorDeviceClass.TEMPERATURE,
-        native_unit_of_measurement=UnitOfTemperature.CELSIUS, suggested_display_precision=1,
+        key="temperature",
+        translation_key="temperature",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        suggested_display_precision=1,
         calcul=_dernier("temperature", 1),
     ),
     ConsoGrdfDescription(
-        key="derniere_lecture", translation_key="derniere_lecture", device_class=SensorDeviceClass.TIMESTAMP,
-        entity_category=EntityCategory.DIAGNOSTIC, calcul=lambda d, _a: (d.get("lu_le"), {}),
+        key="tarif_kwh",
+        translation_key="tarif_kwh",
+        native_unit_of_measurement="EUR/kWh",
+        suggested_display_precision=4,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        calcul=lambda _d, _a: (
+            None,
+            {},
+        ),  # remplacé par ConsoGrdfSensor (dépend des options)
+    ),
+    ConsoGrdfDescription(
+        key="derniere_lecture",
+        translation_key="derniere_lecture",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        calcul=lambda d, _a: (d.get("lu_le"), {}),
     ),
 )
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: ConsoGrdfConfigEntry, async_add_entities: AddConfigEntryEntitiesCallback
+    hass: HomeAssistant,
+    entry: ConsoGrdfConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     coordinator = entry.runtime_data
     async_add_entities(ConsoGrdfSensor(coordinator, d) for d in DESCRIPTIONS)
@@ -117,18 +154,38 @@ class ConsoGrdfSensor(CoordinatorEntity[ConsoGrdfCoordinator], SensorEntity):
     _attr_has_entity_name = True
     entity_description: ConsoGrdfDescription
 
-    def __init__(self, coordinator: ConsoGrdfCoordinator, description: ConsoGrdfDescription) -> None:
+    def __init__(
+        self, coordinator: ConsoGrdfCoordinator, description: ConsoGrdfDescription
+    ) -> None:
         super().__init__(coordinator)
         self.entity_description = description
         pce = coordinator.client.pce
         self._attr_unique_id = f"{pce}_{description.key}"
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, pce)}, name=f"Gazpar {pce}", manufacturer=MANUFACTURER, model=MODEL,
+            identifiers={(DOMAIN, pce)},
+            name=f"Gazpar {pce}",
+            manufacturer=MANUFACTURER,
+            model=MODEL,
             entry_type=DeviceEntryType.SERVICE,
         )
 
     def _valeur(self) -> Valeur:
-        return self.entity_description.calcul(self.coordinator.data, dt_util.now().date())
+        if self.entity_description.key == "tarif_kwh":
+            t = self.coordinator.tarifs
+            if not t:
+                return None, {}
+            return round(t["prix_kwh"] + t["taxes_kwh"], 5), {
+                "prix_kwh": t["prix_kwh"],
+                "taxes_kwh": t["taxes_kwh"],
+                "abonnement_jour": t["abonnement_jour"],
+                "transport_jour": t["transport_jour"],
+                "fixe_mois": round(
+                    (t["abonnement_jour"] + t["transport_jour"]) * 365 / 12, 2
+                ),
+            }
+        return self.entity_description.calcul(
+            self.coordinator.data, dt_util.now().date()
+        )
 
     @property
     def native_value(self) -> Any:

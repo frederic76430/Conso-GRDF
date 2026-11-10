@@ -15,6 +15,7 @@ from homeassistant.util import dt as dt_util
 
 from .api import ApiError, AuthError, GrdfClient
 from .const import (
+    CONF_COUTS,
     CONF_PREFIXE,
     CONF_STATISTIQUES,
     DOMAIN,
@@ -23,7 +24,12 @@ from .const import (
     STORAGE_VERSION,
 )
 from .donnees import premier_du_mois, releves_par_jour
-from .statistiques import async_besoin, async_mettre_a_jour
+from .statistiques import (
+    TARIFS,
+    async_apprendre_tarifs,
+    async_besoin,
+    async_mettre_a_jour,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,14 +37,20 @@ type ConsoGrdfConfigEntry = ConfigEntry[ConsoGrdfCoordinator]
 
 
 class ConsoGrdfCoordinator(DataUpdateCoordinator[dict[str, Any]]):
-    """data = {"jours": {date: {...}}, "lu_le": datetime | None}"""
+    """data = {"jours": {date: {...}}, "lu_le": datetime | None, "tarifs_appris": {...} | None}"""
 
     config_entry: ConsoGrdfConfigEntry
 
-    def __init__(self, hass: HomeAssistant, entry: ConsoGrdfConfigEntry, client: GrdfClient) -> None:
-        super().__init__(hass, _LOGGER, config_entry=entry, name=DOMAIN, update_interval=None)
+    def __init__(
+        self, hass: HomeAssistant, entry: ConsoGrdfConfigEntry, client: GrdfClient
+    ) -> None:
+        super().__init__(
+            hass, _LOGGER, config_entry=entry, name=DOMAIN, update_interval=None
+        )
         self.client = client
-        self._store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, f"{DOMAIN}.{entry.entry_id}")
+        self._store: Store[dict[str, Any]] = Store(
+            hass, STORAGE_VERSION, f"{DOMAIN}.{entry.entry_id}"
+        )
         self._charge = False
         self._stats_jusqua: date | None = None
         self._stats_connues = False
@@ -48,6 +60,18 @@ class ConsoGrdfCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return bool(self.config_entry.options.get(CONF_STATISTIQUES, False))
 
     @property
+    def tarifs(self) -> dict[str, float] | None:
+        """Tarifs TTC utilisés pour les coûts : saisis dans les options, sinon repris de gazpar2haws."""
+        if not self.statistiques or not self.config_entry.options.get(CONF_COUTS, True):
+            return None
+        appris = (self.data or {}).get("tarifs_appris") or {}
+        tarifs = {}
+        for cle in TARIFS:
+            saisi = float(self.config_entry.options.get(cle) or 0)
+            tarifs[cle] = saisi if saisi > 0 else float(appris.get(cle) or 0)
+        return tarifs if tarifs["prix_kwh"] > 0 else None
+
+    @property
     def prefixe(self) -> str:
         return (self.config_entry.options.get(CONF_PREFIXE) or PREFIXE_DEFAUT).strip()
 
@@ -55,8 +79,11 @@ class ConsoGrdfCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         brut = await self._store.async_load() or {}
         lu_le = brut.get("lu_le")
         return {
-            "jours": {date.fromisoformat(k): v for k, v in (brut.get("jours") or {}).items()},
+            "jours": {
+                date.fromisoformat(k): v for k, v in (brut.get("jours") or {}).items()
+            },
             "lu_le": dt_util.parse_datetime(lu_le) if lu_le else None,
+            "tarifs_appris": brut.get("tarifs_appris"),
         }
 
     async def _async_sauver(self, data: dict[str, Any]) -> None:
@@ -64,6 +91,7 @@ class ConsoGrdfCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             {
                 "jours": {k.isoformat(): v for k, v in data["jours"].items()},
                 "lu_le": data["lu_le"].isoformat() if data.get("lu_le") else None,
+                "tarifs_appris": data.get("tarifs_appris"),
             }
         )
 
@@ -71,7 +99,9 @@ class ConsoGrdfCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         jours = data["jours"]
         if not jours or max(jours) < hier:
             return False
-        if self.statistiques and (self._stats_jusqua is None or self._stats_jusqua < hier):
+        if self.statistiques and (
+            self._stats_jusqua is None or self._stats_jusqua < hier
+        ):
             return False
         return True
 
@@ -85,8 +115,17 @@ class ConsoGrdfCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         aujourdhui = dt_util.now().date()
         hier = aujourdhui - timedelta(days=1)
         besoin_stats: date | None = None
+        if self.statistiques and data.get("tarifs_appris") is None:
+            # Une seule fois : retrouver les tarifs dans les coûts que gazpar2haws a enregistrés
+            data["tarifs_appris"] = (
+                await async_apprendre_tarifs(self.hass, self.prefixe) or {}
+            )
+        self.data = data
+        tarifs = self.tarifs
         if self.statistiques:
-            besoin_stats = await async_besoin(self.hass, self.prefixe, JOURS_INITIAUX, aujourdhui)
+            besoin_stats = await async_besoin(
+                self.hass, self.prefixe, tarifs, JOURS_INITIAUX, aujourdhui
+            )
             self._stats_jusqua = besoin_stats - timedelta(days=1)
 
         if data.get("lu_le") and self._complet(data, hier):
@@ -102,16 +141,26 @@ class ConsoGrdfCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise ConfigEntryAuthFailed(str(err)) from err
         except ApiError as err:
             if data.get("lu_le"):
-                _LOGGER.warning("Relecture GRDF impossible, valeurs précédentes conservées : %s", err)
+                _LOGGER.warning(
+                    "Relecture GRDF impossible, valeurs précédentes conservées : %s",
+                    err,
+                )
                 return data
             raise UpdateFailed(str(err)) from err
 
         garde = min(date(aujourdhui.year, 1, 1), premier_du_mois(aujourdhui, -1))
-        data["jours"] = {j: v for j, v in {**data["jours"], **jours}.items() if j >= garde}
+        data["jours"] = {
+            j: v for j, v in {**data["jours"], **jours}.items() if j >= garde
+        }
 
         if self.statistiques:
             self._stats_jusqua = await async_mettre_a_jour(
-                self.hass, self.prefixe, {**data["jours"], **jours}, JOURS_INITIAUX, aujourdhui
+                self.hass,
+                self.prefixe,
+                {**data["jours"], **jours},
+                tarifs,
+                JOURS_INITIAUX,
+                aujourdhui,
             )
 
         data["lu_le"] = dt_util.now()

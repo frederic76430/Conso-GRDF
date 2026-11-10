@@ -34,14 +34,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConsoGrdfConfigEntry) ->
         await coordinator.async_refresh()
 
     entry.async_on_unload(
-        async_track_time_change(hass, _relire, hour=list(HEURES_RELECTURE), minute=minute, second=0)
+        async_track_time_change(
+            hass, _relire, hour=list(HEURES_RELECTURE), minute=minute, second=0
+        )
     )
     entry.async_on_unload(entry.add_update_listener(_async_options_modifiees))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
 
-async def _async_options_modifiees(hass: HomeAssistant, entry: ConsoGrdfConfigEntry) -> None:
+async def _async_options_modifiees(
+    hass: HomeAssistant, entry: ConsoGrdfConfigEntry
+) -> None:
     await hass.config_entries.async_reload(entry.entry_id)
 
 
