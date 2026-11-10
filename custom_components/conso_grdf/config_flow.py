@@ -58,6 +58,15 @@ _TARIF = NumberSelector(
         min=0, max=10, step="any", mode=NumberSelectorMode.BOX, unit_of_measurement="€"
     )
 )
+_ABONNEMENT = NumberSelector(
+    NumberSelectorConfig(
+        min=0,
+        max=1000,
+        step="any",
+        mode=NumberSelectorMode.BOX,
+        unit_of_measurement="€",
+    )
+)
 
 
 class ConsoGrdfConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -213,7 +222,9 @@ class ConsoGrdfOptionsFlow(OptionsFlow):
                     CONF_COUTS, default=options.get(CONF_COUTS, True)
                 ): BooleanSelector(),
                 **{
-                    vol.Optional(cle, default=float(options.get(cle) or 0)): _TARIF
+                    vol.Optional(cle, default=float(options.get(cle) or 0)): (
+                        _ABONNEMENT if cle == CONF_ABONNEMENT_MOIS else _TARIF
+                    )
                     for cle in (
                         CONF_PRIX_KWH,
                         CONF_TAXES_KWH,
