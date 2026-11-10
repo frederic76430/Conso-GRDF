@@ -1,0 +1,14 @@
+{
+  "domain": "conso_grdf",
+  "name": "Conso GRDF",
+  "codeowners": ["@frederic76430"],
+  "config_flow": true,
+  "dependencies": ["recorder"],
+  "documentation": "https://github.com/frederic76430/conso-grdf",
+  "integration_type": "device",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/frederic76430/conso-grdf/issues",
+  "loggers": ["pygazpar"],
+  "requirements": ["pygazpar==1.4.0"],
+  "version": "0.1.0"
+}

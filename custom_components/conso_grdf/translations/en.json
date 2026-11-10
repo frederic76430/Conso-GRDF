@@ -1,0 +1,99 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "GRDF account",
+        "description": "Credentials of your monespace.grdf.fr account (the same as gazpar2haws).",
+        "data": {
+          "username": "E-mail",
+          "password": "Password"
+        }
+      },
+      "pce": {
+        "title": "Meter",
+        "description": "This account has several meters. Which one should be added?",
+        "data": {
+          "pce": "PCE"
+        }
+      },
+      "reauth_confirm": {
+        "title": "GRDF password",
+        "description": "GRDF refuses the password of {email}. Enter the new one.",
+        "data": {
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Credentials refused by GRDF.",
+      "cannot_connect": "Cannot reach GRDF, try again later.",
+      "no_pce": "No meter (PCE) found on this account.",
+      "unknown": "Unexpected error."
+    },
+    "abort": {
+      "already_configured": "This meter is already configured.",
+      "reauth_successful": "Password updated."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options",
+        "description": "Statistics: writes sensor.PREFIX_volume and sensor.PREFIX_energy daily like gazpar2haws, continuing where it stopped. Use the same device name as in gazpar2haws (gazpar2haws by default) and stop gazpar2haws before enabling.",
+        "data": {
+          "type_conso": "GRDF readings",
+          "statistiques": "Energy dashboard statistics (replaces gazpar2haws)",
+          "prefixe": "gazpar2haws device name"
+        }
+      }
+    },
+    "error": {
+      "invalid_prefixe": "Lowercase letters, digits and _ only."
+    }
+  },
+  "selector": {
+    "type_conso": {
+      "options": {
+        "informative": "Informative (daily, recommended)",
+        "published": "Published (if informative is empty)"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "energie_jour": {
+        "name": "Energy day"
+      },
+      "energie_mois": {
+        "name": "Energy month"
+      },
+      "energie_mois_dernier": {
+        "name": "Energy last month"
+      },
+      "energie_annee": {
+        "name": "Energy year"
+      },
+      "volume_jour": {
+        "name": "Volume day"
+      },
+      "volume_mois": {
+        "name": "Volume month"
+      },
+      "volume_mois_dernier": {
+        "name": "Volume last month"
+      },
+      "volume_annee": {
+        "name": "Volume year"
+      },
+      "index": {
+        "name": "Meter index"
+      },
+      "temperature": {
+        "name": "Day temperature"
+      },
+      "derniere_lecture": {
+        "name": "Last read"
+      }
+    }
+  }
+}

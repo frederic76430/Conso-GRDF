@@ -1,0 +1,99 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Espace client GRDF",
+        "description": "Identifiants de ton espace client monespace.grdf.fr (les mêmes que pour gazpar2haws).",
+        "data": {
+          "username": "Adresse e-mail",
+          "password": "Mot de passe"
+        }
+      },
+      "pce": {
+        "title": "Choix du compteur",
+        "description": "Ce compte a plusieurs compteurs. Lequel ajouter ?",
+        "data": {
+          "pce": "PCE"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Mot de passe GRDF",
+        "description": "GRDF refuse le mot de passe de {email}. Saisis le nouveau.",
+        "data": {
+          "password": "Mot de passe"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Identifiants refusés par GRDF.",
+      "cannot_connect": "Impossible de joindre GRDF, réessaie plus tard.",
+      "no_pce": "Aucun compteur (PCE) trouvé sur ce compte.",
+      "unknown": "Erreur inattendue."
+    },
+    "abort": {
+      "already_configured": "Ce compteur est déjà configuré.",
+      "reauth_successful": "Mot de passe mis à jour."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options",
+        "description": "Statistiques : écrit sensor.PREFIXE_volume et sensor.PREFIXE_energy jour par jour, comme gazpar2haws, en reprenant là où il s'est arrêté. Mets le même nom d'appareil que dans gazpar2haws (gazpar2haws par défaut) et arrête gazpar2haws avant de cocher.",
+        "data": {
+          "type_conso": "Relevés GRDF",
+          "statistiques": "Statistiques du tableau Énergie (remplace gazpar2haws)",
+          "prefixe": "Nom d'appareil gazpar2haws"
+        }
+      }
+    },
+    "error": {
+      "invalid_prefixe": "Lettres minuscules, chiffres et _ uniquement."
+    }
+  },
+  "selector": {
+    "type_conso": {
+      "options": {
+        "informative": "Informatifs (quotidiens, conseillé)",
+        "published": "Publiés (si les informatifs sont vides)"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "energie_jour": {
+        "name": "Énergie jour"
+      },
+      "energie_mois": {
+        "name": "Énergie mois"
+      },
+      "energie_mois_dernier": {
+        "name": "Énergie mois dernier"
+      },
+      "energie_annee": {
+        "name": "Énergie année"
+      },
+      "volume_jour": {
+        "name": "Volume jour"
+      },
+      "volume_mois": {
+        "name": "Volume mois"
+      },
+      "volume_mois_dernier": {
+        "name": "Volume mois dernier"
+      },
+      "volume_annee": {
+        "name": "Volume année"
+      },
+      "index": {
+        "name": "Index compteur"
+      },
+      "temperature": {
+        "name": "Température du jour"
+      },
+      "derniere_lecture": {
+        "name": "Dernière lecture"
+      }
+    }
+  }
+}

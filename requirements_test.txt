@@ -1,0 +1,2 @@
+pytest-homeassistant-custom-component
+pygazpar==1.4.0
