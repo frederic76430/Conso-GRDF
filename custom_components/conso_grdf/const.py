@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 DOMAIN = "conso_grdf"
+# Statistiques externes : conso_grdf:gaz_energy, conso_grdf:gaz_total_cost…
+STAT_BASE = f"{DOMAIN}:gaz"
 MANUFACTURER = "GRDF"
 MODEL = "Compteur Gazpar"
 

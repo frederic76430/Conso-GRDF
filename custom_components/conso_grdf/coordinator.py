@@ -26,6 +26,7 @@ from .const import (
     DOMAIN,
     JOURS_INITIAUX,
     PREFIXE_DEFAUT,
+    STAT_BASE,
     STORAGE_VERSION,
 )
 from .donnees import premier_du_mois, releves_par_jour
@@ -34,6 +35,7 @@ from .statistiques import (
     async_apprendre_tarifs,
     async_besoin,
     async_mettre_a_jour,
+    async_migrer,
     async_recalculer_couts,
 )
 
@@ -143,6 +145,9 @@ class ConsoGrdfCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             data["tarifs_appris"] = (
                 await async_apprendre_tarifs(self.hass, self.prefixe) or {}
             )
+        if self.statistiques:
+            # Reprise de l'historique gazpar2haws (ne fait rien une fois copié)
+            await async_migrer(self.hass, self.prefixe, STAT_BASE)
         self.data = data
         tarifs = self.tarifs
         depuis = self.config_entry.options.get(CONF_TARIF_DEPUIS)
@@ -152,7 +157,7 @@ class ConsoGrdfCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 # Nouveau tarif avec date d'effet : coûts réécrits depuis cette date
                 await async_recalculer_couts(
                     self.hass,
-                    self.prefixe,
+                    STAT_BASE,
                     data["jours"],
                     tarifs,
                     date.fromisoformat(depuis),
@@ -162,7 +167,7 @@ class ConsoGrdfCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 await self._async_sauver(data)
         if self.statistiques:
             besoin_stats = await async_besoin(
-                self.hass, self.prefixe, tarifs, JOURS_INITIAUX, aujourdhui
+                self.hass, STAT_BASE, tarifs, JOURS_INITIAUX, aujourdhui
             )
             self._stats_jusqua = besoin_stats - timedelta(days=1)
 
@@ -194,7 +199,7 @@ class ConsoGrdfCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if self.statistiques:
             self._stats_jusqua = await async_mettre_a_jour(
                 self.hass,
-                self.prefixe,
+                STAT_BASE,
                 {**data["jours"], **jours},
                 tarifs,
                 JOURS_INITIAUX,

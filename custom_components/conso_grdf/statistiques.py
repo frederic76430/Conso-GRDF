@@ -19,6 +19,7 @@ from homeassistant.components.recorder.models import (
     StatisticMetaData,
 )
 from homeassistant.components.recorder.statistics import (
+    async_add_external_statistics,
     async_import_statistics,
     get_last_statistics,
     statistics_during_period,
@@ -47,43 +48,43 @@ def _fixe(cle_tarif: str) -> Callable[[dict[str, float | None], Tarifs], float |
     return lambda v, t: None if v.get("energie") is None else t[cle_tarif]
 
 
-# (suffixe, nom gazpar2haws, classe d'unité, unité, valeur du jour)
+# (suffixe, nom, classe d'unité, unité, valeur du jour)
 SERIES = (
-    ("volume", "Gazpar2HAWS Volume", "volume", "m³", lambda v, t: v.get("volume")),
-    ("energy", "Gazpar2HAWS Energy", "energy", "kWh", lambda v, t: v.get("energie")),
+    ("volume", "Gaz volume", "volume", "m³", lambda v, t: v.get("volume")),
+    ("energy", "Gaz énergie", "energy", "kWh", lambda v, t: v.get("energie")),
 )
 SERIES_COUTS = (
     (
         "consumption_cost",
-        "Gazpar2HAWS Consumption Cost",
+        "Gaz coût consommation",
         None,
         "EUR",
         _energie("prix_kwh"),
     ),
     (
         "subscription_cost",
-        "Gazpar2HAWS Subscription Cost",
+        "Gaz coût abonnement",
         None,
         "EUR",
         _fixe("abonnement_jour"),
     ),
     (
         "transport_cost",
-        "Gazpar2HAWS Transport Cost",
+        "Gaz coût transport",
         None,
         "EUR",
         _fixe("transport_jour"),
     ),
     (
         "energy_taxes_cost",
-        "Gazpar2HAWS Energy Taxes Cost",
+        "Gaz coût taxes",
         None,
         "EUR",
         _energie("taxes_kwh"),
     ),
     (
         "total_cost",
-        "Gazpar2HAWS Total Cost",
+        "Gaz coût total",
         None,
         "EUR",
         lambda v, t: (
@@ -98,7 +99,70 @@ SERIES_COUTS = (
 
 
 def statistic_id(prefixe: str, suffixe: str) -> str:
+    """« conso_grdf:gaz » → conso_grdf:gaz_energy (externe) ; « gazpar2haws » → sensor.gazpar2haws_energy."""
+    if ":" in prefixe:
+        return f"{prefixe}_{suffixe}"
     return f"sensor.{prefixe}_{suffixe}"
+
+
+def _source(sid: str) -> str:
+    return sid.split(":", 1)[0] if not sid.startswith("sensor.") else "recorder"
+
+
+def _importer(hass: HomeAssistant, meta: StatisticMetaData, lignes: list) -> None:
+    if meta["source"] == "recorder":
+        async_import_statistics(hass, meta, lignes)
+    else:
+        async_add_external_statistics(hass, meta, lignes)
+
+
+async def async_migrer(hass: HomeAssistant, ancien: str, nouveau: str) -> int:
+    """Recopie l'historique gazpar2haws (sensor.ANCIEN_*) dans les statistiques externes, une seule fois."""
+    copiees = 0
+    for suffixe, nom, classe, unite, _v in SERIES + SERIES_COUTS:
+        cible = statistic_id(nouveau, suffixe)
+        if (await async_dernier_jour(hass, cible))[0] is not None:
+            continue
+        origine = statistic_id(ancien, suffixe)
+        res = await get_instance(hass).async_add_executor_job(
+            statistics_during_period,
+            hass,
+            dt_util.utc_from_timestamp(0),
+            None,
+            {origine},
+            "hour",
+            None,
+            {"state", "sum"},
+        )
+        lignes = [
+            StatisticData(
+                start=dt_util.utc_from_timestamp(r["start"]),
+                state=r.get("state"),
+                sum=r.get("sum"),
+            )
+            for r in res.get(origine) or []
+            if r.get("sum") is not None
+        ]
+        if not lignes:
+            continue
+        _importer(
+            hass,
+            StatisticMetaData(
+                mean_type=StatisticMeanType.NONE,
+                has_sum=True,
+                name=nom,
+                source=_source(cible),
+                statistic_id=cible,
+                unit_class=classe,
+                unit_of_measurement=unite,
+            ),
+            lignes,
+        )
+        _LOGGER.info("%s : %d valeurs reprises de %s", cible, len(lignes), origine)
+        copiees += len(lignes)
+    if copiees:
+        await get_instance(hass).async_block_till_done()
+    return copiees
 
 
 def series(tarifs: Tarifs | None) -> tuple:
@@ -225,13 +289,13 @@ async def async_recalculer_couts(
                 )
             )
         if nouvelles:
-            async_import_statistics(
+            _importer(
                 hass,
                 StatisticMetaData(
                     mean_type=StatisticMeanType.NONE,
                     has_sum=True,
                     name=nom,
-                    source="recorder",
+                    source=_source(sid),
                     statistic_id=sid,
                     unit_class=classe,
                     unit_of_measurement=unite,
@@ -276,13 +340,13 @@ async def async_mettre_a_jour(
                 )
             )
         if nouvelles:
-            async_import_statistics(
+            _importer(
                 hass,
                 StatisticMetaData(
                     mean_type=StatisticMeanType.NONE,
                     has_sum=True,
                     name=nom,
-                    source="recorder",
+                    source=_source(sid),
                     statistic_id=sid,
                     unit_class=classe,
                     unit_of_measurement=unite,
