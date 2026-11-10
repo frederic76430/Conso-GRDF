@@ -10,5 +10,5 @@
   "issue_tracker": "https://github.com/frederic76430/conso-grdf/issues",
   "loggers": ["pygazpar"],
   "requirements": ["pygazpar==1.4.0"],
-  "version": "0.2.0"
+  "version": "0.2.1"
 }

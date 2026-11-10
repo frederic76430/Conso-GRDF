@@ -75,6 +75,15 @@ class ConsoGrdfCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def prefixe(self) -> str:
         return (self.config_entry.options.get(CONF_PREFIXE) or PREFIXE_DEFAUT).strip()
 
+    async def async_restaurer(self) -> bool:
+        """Reprend les valeurs enregistrées au dernier arrêt (sans appeler GRDF)."""
+        data = await self._async_charger()
+        if not data.get("lu_le") or not data["jours"]:
+            return False
+        self._charge = True
+        self.data = data
+        return True
+
     async def _async_charger(self) -> dict[str, Any]:
         brut = await self._store.async_load() or {}
         lu_le = brut.get("lu_le")

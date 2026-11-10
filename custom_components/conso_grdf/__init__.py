@@ -10,7 +10,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.event import async_track_time_change
 
 from .api import GrdfClient
-from .const import CONF_PCE, CONF_TYPE_CONSO, HEURES_RELECTURE, TYPE_INFORMATIVE
+from .const import CONF_PCE, CONF_TYPE_CONSO, DOMAIN, HEURES_RELECTURE, TYPE_INFORMATIVE
 from .coordinator import ConsoGrdfConfigEntry, ConsoGrdfCoordinator
 
 PLATFORMS = [Platform.SENSOR]
@@ -25,7 +25,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConsoGrdfConfigEntry) ->
         entry.options.get(CONF_TYPE_CONSO, TYPE_INFORMATIVE),
     )
     coordinator = ConsoGrdfCoordinator(hass, entry, client)
-    await coordinator.async_config_entry_first_refresh()
+    if await coordinator.async_restaurer():
+        # Valeurs déjà connues : démarrage immédiat, la relecture GRDF se fait en arrière-plan
+        entry.async_create_background_task(
+            hass, coordinator.async_refresh(), f"{DOMAIN}_relecture_{entry.entry_id}"
+        )
+    else:
+        await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
 
     minute = random.Random(entry.entry_id).randint(0, 59)
