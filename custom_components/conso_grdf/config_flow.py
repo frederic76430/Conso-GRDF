@@ -17,6 +17,7 @@ from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import callback
 from homeassistant.helpers.selector import (
     BooleanSelector,
+    DateSelector,
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
@@ -30,12 +31,13 @@ from homeassistant.helpers.selector import (
 
 from .api import ApiError, AuthError, async_pces
 from .const import (
-    CONF_ABONNEMENT_JOUR,
+    CONF_ABONNEMENT_MOIS,
     CONF_COUTS,
     CONF_PCE,
     CONF_PREFIXE,
     CONF_PRIX_KWH,
     CONF_STATISTIQUES,
+    CONF_TARIF_DEPUIS,
     CONF_TAXES_KWH,
     CONF_TRANSPORT_JOUR,
     CONF_TYPE_CONSO,
@@ -215,10 +217,14 @@ class ConsoGrdfOptionsFlow(OptionsFlow):
                     for cle in (
                         CONF_PRIX_KWH,
                         CONF_TAXES_KWH,
-                        CONF_ABONNEMENT_JOUR,
+                        CONF_ABONNEMENT_MOIS,
                         CONF_TRANSPORT_JOUR,
                     )
                 },
+                vol.Optional(
+                    CONF_TARIF_DEPUIS,
+                    description={"suggested_value": options.get(CONF_TARIF_DEPUIS)},
+                ): DateSelector(),
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema, errors=errors)

@@ -15,9 +15,14 @@ from homeassistant.util import dt as dt_util
 
 from .api import ApiError, AuthError, GrdfClient
 from .const import (
+    CONF_ABONNEMENT_MOIS,
     CONF_COUTS,
     CONF_PREFIXE,
+    CONF_PRIX_KWH,
     CONF_STATISTIQUES,
+    CONF_TARIF_DEPUIS,
+    CONF_TAXES_KWH,
+    CONF_TRANSPORT_JOUR,
     DOMAIN,
     JOURS_INITIAUX,
     PREFIXE_DEFAUT,
@@ -29,6 +34,7 @@ from .statistiques import (
     async_apprendre_tarifs,
     async_besoin,
     async_mettre_a_jour,
+    async_recalculer_couts,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -64,11 +70,17 @@ class ConsoGrdfCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Tarifs TTC utilisés pour les coûts : saisis dans les options, sinon repris de gazpar2haws."""
         if not self.statistiques or not self.config_entry.options.get(CONF_COUTS, True):
             return None
+        opt = self.config_entry.options
+        if float(opt.get(CONF_PRIX_KWH) or 0) > 0:
+            # Saisie manuelle (facture) : tout vient des options, 0 veut dire 0
+            return {
+                "prix_kwh": float(opt[CONF_PRIX_KWH]),
+                "taxes_kwh": float(opt.get(CONF_TAXES_KWH) or 0),
+                "abonnement_jour": float(opt.get(CONF_ABONNEMENT_MOIS) or 0) * 12 / 365,
+                "transport_jour": float(opt.get(CONF_TRANSPORT_JOUR) or 0),
+            }
         appris = (self.data or {}).get("tarifs_appris") or {}
-        tarifs = {}
-        for cle in TARIFS:
-            saisi = float(self.config_entry.options.get(cle) or 0)
-            tarifs[cle] = saisi if saisi > 0 else float(appris.get(cle) or 0)
+        tarifs = {cle: float(appris.get(cle) or 0) for cle in TARIFS}
         return tarifs if tarifs["prix_kwh"] > 0 else None
 
     @property
@@ -93,6 +105,7 @@ class ConsoGrdfCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             },
             "lu_le": dt_util.parse_datetime(lu_le) if lu_le else None,
             "tarifs_appris": brut.get("tarifs_appris"),
+            "recalcul": brut.get("recalcul"),
         }
 
     async def _async_sauver(self, data: dict[str, Any]) -> None:
@@ -101,6 +114,7 @@ class ConsoGrdfCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "jours": {k.isoformat(): v for k, v in data["jours"].items()},
                 "lu_le": data["lu_le"].isoformat() if data.get("lu_le") else None,
                 "tarifs_appris": data.get("tarifs_appris"),
+                "recalcul": data.get("recalcul"),
             }
         )
 
@@ -131,6 +145,21 @@ class ConsoGrdfCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
         self.data = data
         tarifs = self.tarifs
+        depuis = self.config_entry.options.get(CONF_TARIF_DEPUIS)
+        if self.statistiques and tarifs and depuis and data["jours"]:
+            cle = f"{depuis}|{sorted(tarifs.items())}"
+            if data.get("recalcul") != cle:
+                # Nouveau tarif avec date d'effet : coûts réécrits depuis cette date
+                await async_recalculer_couts(
+                    self.hass,
+                    self.prefixe,
+                    data["jours"],
+                    tarifs,
+                    date.fromisoformat(depuis),
+                    aujourdhui,
+                )
+                data["recalcul"] = cle
+                await self._async_sauver(data)
         if self.statistiques:
             besoin_stats = await async_besoin(
                 self.hass, self.prefixe, tarifs, JOURS_INITIAUX, aujourdhui

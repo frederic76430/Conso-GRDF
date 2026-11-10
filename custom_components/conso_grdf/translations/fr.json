@@ -39,16 +39,17 @@
     "step": {
       "init": {
         "title": "Options",
-        "description": "Statistiques : écrit sensor.PREFIXE_volume et sensor.PREFIXE_energy jour par jour, comme gazpar2haws, en reprenant là où il s'est arrêté. Mets le même nom d'appareil que dans gazpar2haws (gazpar2haws par défaut) et arrête gazpar2haws avant de cocher. Coûts : à 0, les tarifs sont retrouvés automatiquement dans les coûts déjà enregistrés par gazpar2haws (60 derniers jours).",
+        "description": "Statistiques : écrit sensor.PREFIXE_volume et sensor.PREFIXE_energy jour par jour, comme gazpar2haws, en reprenant là où il s'est arrêté. Coûts : si le prix du kWh est à 0, tous les tarifs sont retrouvés dans les coûts déjà enregistrés par gazpar2haws. Sinon les tarifs viennent de ces cases, recopiés de ta facture (TTC). Avec une date, les coûts sont recalculés à partir de ce jour.",
         "data": {
           "type_conso": "Relevés GRDF",
           "statistiques": "Statistiques du tableau Énergie (remplace gazpar2haws)",
           "prefixe": "Nom d'appareil gazpar2haws",
           "couts": "Calculer aussi les coûts (statistiques _cost de gazpar2haws)",
-          "prix_kwh": "Prix du kWh TTC (0 = repris de gazpar2haws)",
-          "taxes_kwh": "Taxes par kWh TTC (0 = repris)",
-          "abonnement_jour": "Abonnement par jour TTC (0 = repris)",
-          "transport_jour": "Transport par jour TTC (0 = repris)"
+          "prix_kwh": "Prix du kWh TTC (0 = tout reprendre de gazpar2haws)",
+          "taxes_kwh": "Taxes par kWh TTC en plus du prix (souvent 0)",
+          "transport_jour": "Transport par jour TTC (souvent 0)",
+          "abonnement_mois": "Abonnement par mois TTC",
+          "tarif_depuis": "Tarif valable depuis le (recalcule les coûts depuis cette date)"
         }
       }
     },

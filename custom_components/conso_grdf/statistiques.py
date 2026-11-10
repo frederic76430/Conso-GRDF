@@ -180,6 +180,69 @@ async def async_apprendre_tarifs(
     }
 
 
+async def async_recalculer_couts(
+    hass: HomeAssistant,
+    prefixe: str,
+    jours: Jours,
+    tarifs: Tarifs,
+    depuis: date,
+    aujourdhui: date,
+) -> None:
+    """Réécrit les coûts à partir de « depuis » avec les tarifs donnés (les jours d'avant ne bougent pas)."""
+    fuseau = dt_util.get_default_time_zone()
+    depuis = max(depuis, min(jours))
+    veille = datetime.combine(depuis - timedelta(days=1), time(), fuseau)
+    for suffixe, nom, classe, unite, valeur_du_jour in SERIES_COUTS:
+        sid = statistic_id(prefixe, suffixe)
+        res = await get_instance(hass).async_add_executor_job(
+            statistics_during_period,
+            hass,
+            veille,
+            veille + timedelta(hours=1),
+            {sid},
+            "hour",
+            None,
+            {"sum"},
+        )
+        lignes = res.get(sid) or []
+        if not lignes:
+            _LOGGER.warning(
+                "%s : pas de valeur la veille du %s, recalcul ignoré", sid, depuis
+            )
+            continue
+        somme = float(lignes[-1].get("sum") or 0.0)
+        nouvelles: list[StatisticData] = []
+        for jour in sorted(j for j in jours if depuis <= j < aujourdhui):
+            valeur = valeur_du_jour(jours[jour], tarifs)
+            if valeur is None:
+                break
+            somme += valeur
+            nouvelles.append(
+                StatisticData(
+                    start=datetime.combine(jour, time(), fuseau),
+                    state=round(somme, 4),
+                    sum=round(somme, 4),
+                )
+            )
+        if nouvelles:
+            async_import_statistics(
+                hass,
+                StatisticMetaData(
+                    mean_type=StatisticMeanType.NONE,
+                    has_sum=True,
+                    name=nom,
+                    source="recorder",
+                    statistic_id=sid,
+                    unit_class=classe,
+                    unit_of_measurement=unite,
+                ),
+                nouvelles,
+            )
+            _LOGGER.info(
+                "%s : %d jours recalculés depuis le %s", sid, len(nouvelles), depuis
+            )
+
+
 async def async_mettre_a_jour(
     hass: HomeAssistant,
     prefixe: str,
